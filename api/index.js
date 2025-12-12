@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // String de conexão MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://admin:<db_admin123>@cluster0.ltmmt6b.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://admin:senha123@cluster0.xxxxx.mongodb.net/tarefas_db?retryWrites=true&w=majority&ssl=true';
 
 let cachedClient = null;
 let cachedDb = null;
