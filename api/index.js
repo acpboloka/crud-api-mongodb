@@ -9,25 +9,29 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// String de conexão MongoDB (usar variável de ambiente)
-const MONGODB_URI = process.env.MONGODB_URI || 'https://cloud.mongodb.com/v2/693b3d4cd76c3c2244386be2#/clusters/connect?clusterId=Cluster0';
+// String de conexão MongoDB
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://admin:<db_admin123>@cluster0.ltmmt6b.mongodb.net/?appName=Cluster0';
 
-let db;
-let tarefasCollection;
+let cachedClient = null;
+let cachedDb = null;
 
-// Conectar ao MongoDB
-async function connectDB() {
-  try {
-    const client = await MongoClient.connect(MONGODB_URI);
-    db = client.db('tarefas_db');
-    tarefasCollection = db.collection('tarefas');
-    console.log('✅ Conectado ao MongoDB');
-  } catch (error) {
-    console.error('❌ Erro ao conectar MongoDB:', error);
+// Conectar ao MongoDB com cache
+async function connectToDatabase() {
+  if (cachedDb && cachedClient) {
+    return { db: cachedDb, client: cachedClient };
   }
-}
 
-connectDB();
+  const client = await MongoClient.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  });
+
+  const db = client.db('tarefas_db');
+  cachedClient = client;
+  cachedDb = db;
+
+  return { db, client };
+}
 
 // DOCUMENTAÇÃO SWAGGER (JSON)
 const swaggerDoc = {
@@ -92,54 +96,6 @@ const swaggerDoc = {
           201: { description: 'Tarefa criada com sucesso' }
         }
       }
-    },
-    '/api/tarefas/{id}': {
-      get: {
-        summary: 'Buscar tarefa por ID',
-        tags: ['Tarefas'],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
-        ],
-        responses: {
-          200: { description: 'Tarefa encontrada' },
-          404: { description: 'Tarefa não encontrada' }
-        }
-      },
-      put: {
-        summary: 'Atualizar tarefa',
-        tags: ['Tarefas'],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
-        ],
-        requestBody: {
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  Descricao: { type: 'string' },
-                  DataInicial: { type: 'string' },
-                  DataFinal: { type: 'string' },
-                  Status: { type: 'string' }
-                }
-              }
-            }
-          }
-        },
-        responses: {
-          200: { description: 'Tarefa atualizada' }
-        }
-      },
-      delete: {
-        summary: 'Deletar tarefa',
-        tags: ['Tarefas'],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
-        ],
-        responses: {
-          200: { description: 'Tarefa deletada' }
-        }
-      }
     }
   }
 };
@@ -173,6 +129,9 @@ app.get('/api-docs', (req, res) => {
 // CREATE - Criar nova tarefa
 app.post('/api/tarefas', async (req, res) => {
   try {
+    const { db } = await connectToDatabase();
+    const tarefasCollection = db.collection('tarefas');
+
     const { Descricao, DataInicial, DataFinal, Status } = req.body;
 
     if (!Descricao || !DataInicial || !DataFinal || !Status) {
@@ -212,6 +171,9 @@ app.post('/api/tarefas', async (req, res) => {
 // READ - Listar todas as tarefas
 app.get('/api/tarefas', async (req, res) => {
   try {
+    const { db } = await connectToDatabase();
+    const tarefasCollection = db.collection('tarefas');
+
     const tarefas = await tarefasCollection.find({}).toArray();
 
     res.json({
@@ -231,6 +193,9 @@ app.get('/api/tarefas', async (req, res) => {
 // READ - Buscar tarefa por ID
 app.get('/api/tarefas/:id', async (req, res) => {
   try {
+    const { db } = await connectToDatabase();
+    const tarefasCollection = db.collection('tarefas');
+
     const { id } = req.params;
 
     if (!ObjectId.isValid(id)) {
@@ -265,6 +230,9 @@ app.get('/api/tarefas/:id', async (req, res) => {
 // UPDATE - Atualizar tarefa
 app.put('/api/tarefas/:id', async (req, res) => {
   try {
+    const { db } = await connectToDatabase();
+    const tarefasCollection = db.collection('tarefas');
+
     const { id } = req.params;
     const { Descricao, DataInicial, DataFinal, Status } = req.body;
 
@@ -312,6 +280,9 @@ app.put('/api/tarefas/:id', async (req, res) => {
 // DELETE - Deletar tarefa
 app.delete('/api/tarefas/:id', async (req, res) => {
   try {
+    const { db } = await connectToDatabase();
+    const tarefasCollection = db.collection('tarefas');
+
     const { id } = req.params;
 
     if (!ObjectId.isValid(id)) {
